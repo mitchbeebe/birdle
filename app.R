@@ -1,6 +1,5 @@
 library(shiny)
 library(tidyverse)
-library(dqshiny)
 library(shinyalert)
 library(pluralize)
 library(glue)
