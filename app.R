@@ -5,6 +5,7 @@ library(pluralize)
 library(glue)
 library(shinyjs)
 library(lubridate)
+library(emoji)
 
 source("./db.R")
 birds <- read_csv("birds.csv")
