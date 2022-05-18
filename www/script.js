@@ -3,17 +3,6 @@ function getCookies(){
   Shiny.setInputValue('cookies', res);
 }
 
-/* Shiny.addCustomMessageHandler('cookie-set', function(msg){
-  Cookies.set(msg.name, msg.value);
-  getCookies();
-})
-
-Shiny.addCustomMessageHandler('cookie-remove', function(msg){
-  Cookies.remove(msg.name);
-  getCookies();
-})
-*/
-
 $(document).on('shiny:connected', function(ev){
   if(Cookies.get('user_id') == null) {
     Cookies.set('user_id', Date.now());
@@ -21,6 +10,19 @@ $(document).on('shiny:connected', function(ev){
   getCookies();
   Shiny.setInputValue("load", 1, {priority: "event"});
 })
+
+var socket_timeout_interval;
+var n = 0;
+
+$(document).on('shiny:connected', function(event) {
+  socket_timeout_interval = setInterval(function() {
+    Shiny.onInputChange('alive_count', n++)
+  }, 30000);
+});
+
+$(document).on('shiny:disconnected', function(event) {
+  clearInterval(socket_timeout_interval)
+});
 
 function collapse_bs() {
   const navLinks = document.querySelectorAll('.nav-item');

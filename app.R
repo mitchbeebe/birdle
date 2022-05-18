@@ -18,7 +18,7 @@ ui <- navbarPage(
     theme = bslib::bs_theme(bootswatch = "default"),
     collapsible = TRUE,
     header = tags$head(
-        tags$link(rel="shortcut icon", href=icon("dove", "fa-light")),
+        tags$link(rel="shortcut icon", href="/favicon.png"),
         tags$script(src = "script.js"),
         tags$script(
             src = paste0(
@@ -51,6 +51,9 @@ ui <- navbarPage(
       });
     });")),
         tags$style(HTML("
+        #keep_alive {
+          visibility: hidden;
+        }
   .selectize-control.single .selectize-input:after{
       display:none;
   }
@@ -113,6 +116,7 @@ ui <- navbarPage(
     ),
     footer = useShinyjs(),
     tabPanel("Game", icon = icon("dove", "fa-light"),
+             textOutput("keep_alive"),
              fluidRow(
                  column(width = 12, align = "center",
                         img(class = "bird-img", src = bird_answer$img_src, width = "200px"),
@@ -232,6 +236,11 @@ server <- function(input, output, session) {
         })
         
         alert(history)
+    })
+    
+    output$keep_alive <- renderText({
+      req(input$alive_count)
+      input$alive_count
     })
 }
 
