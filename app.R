@@ -203,7 +203,7 @@ server <- function(input, output, session) {
     })
     
     # Show popup again
-    if(is_winner(history) | length(history) == 6) alert(history)
+    if(is_winner(history) | length(history) == 6) alert(history, bird_answer())
   }, once = TRUE)
   
   # Do on guess submission
@@ -235,7 +235,7 @@ server <- function(input, output, session) {
     
     num_guesses <<- num_guesses + 1
     
-    result <- check_bird(input$guess)
+    result <- check_bird(input$guess, bird_answer())
     
     history <<- append(history, result$correctness)
     
@@ -247,7 +247,7 @@ server <- function(input, output, session) {
       ui
     })
     
-    alert(history)
+    alert(history, bird_answer())
   })
   
   output$keep_alive <- renderText({
@@ -256,7 +256,7 @@ server <- function(input, output, session) {
   })
 }
 
-check_bird <- function(guess) {
+check_bird <- function(guess, bird_answer) {
   
   fields <- c("order", "family", "genus", "name")
   
@@ -267,7 +267,7 @@ check_bird <- function(guess) {
     as.character()
   
   answer_taxonomy <- 
-    bird_answer() %>% 
+    bird_answer %>% 
     select(fields) %>% 
     as.character()
   
@@ -297,7 +297,7 @@ is_winner <- function(history) {
   }
 }
 
-alert <- function(history) {
+alert <- function(history, bird_answer) {
   winner <- is_winner(history)
   num_guesses <- length(history)
   
@@ -305,7 +305,7 @@ alert <- function(history) {
     shinyalert(
       title = "Congratulations!",
       text = glue("You got today's Birdle in {num_guesses} {pluralize('guess', num_guesses)} 🎉<hr>
-                  Learn more about the <a href=\"{bird_answer()$url}\" target=_blank>{bird_answer()$name}</a>"),
+                  Learn more about the <a href=\"{bird_answer$url}\" target=_blank>{bird_answer$name}</a>"),
       size = "xs", 
       closeOnEsc = TRUE,
       closeOnClickOutside = TRUE,
@@ -335,7 +335,7 @@ alert <- function(history) {
     shinyalert(
       title = "Oh no!",
       html = TRUE,
-      text = HTML(glue("Today's bird is the <a href=\"{bird_answer()$url}\" target=_blank>{bird_answer()$name}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.")),
+      text = HTML(glue("Today's bird is the <a href=\"{bird_answer$url}\" target=_blank>{bird_answer$name}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.")),
       size = "xs", 
       closeOnEsc = TRUE,
       closeOnClickOutside = TRUE,
