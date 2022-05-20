@@ -6,6 +6,7 @@ library(glue)
 library(shinyjs)
 library(lubridate)
 library(emoji)
+library(scales)
 
 source("./db.R")
 birds <- read_csv("birds.csv")
@@ -111,6 +112,9 @@ ui <- navbarPage(
       .guesses .bird > .incorrect {
           background-color: #888;
       }
+      td:first-child {
+        font-weight: bold
+      }
     "))
   ),
   footer = useShinyjs(),
@@ -144,11 +148,13 @@ ui <- navbarPage(
            )
   ),
   tabPanel("Stats", icon = icon("chart-bar", lib = "font-awesome"),
-           h1("Coming soon"),
-           plotOutput("stats")),
+           div(align = "center", plotOutput("distribution", width = "100%", height = "200px")),
+           hr(),
+           div(align = "center", tableOutput("stats"))
+  ),
   tabPanel("About", icon = icon("info"),
            HTML("<p>
-             Hi, my name is Mitch. I'm the creator of Birdle. I'm neither a birder or web developer.
+             Hi, my name is Mitch. I'm the creator of Birdle. I'm neither a birder nor web developer.
              I jokingly threw the name 'Birdle' out there to a friend that is an avid birder and also very 
              into all -dle games (<a href='https://www.nytimes.com/games/wordle/index.html' target=_blank>Wordle</a>, 
              <a href='https://worldle.teuteuf.fr/' target=_blank>Worldle</a>, 
@@ -198,8 +204,49 @@ server <- function(input, output, session) {
       ui
     })
     
-    output$stats <- renderPlot({
-      ggplot(mtcars, aes(wt, mpg)) + geom_point()
+    user_games <- get_games() %>% filter(user_id == 1650507324227)
+    clean <- user_games %>%
+      mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
+             guesses = map_int(results, length),
+             final = map2(results, guesses, ~ .x[.y][[1]]),
+             win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
+      select(id, date, user_id, guesses, win)
+    
+    output$stats <- renderTable({
+      streaks <- clean %>% 
+        filter(win) %>% 
+        mutate(con = cumsum(c(1, diff(as.Date(date))) > 1)) %>% 
+        group_by(con) %>% 
+        mutate(streak = n())
+      
+      tibble(
+        `Games Played` = nrow(clean),
+        `Games Won` = sum(clean$win),
+        `Win Percentage` = mean(clean$win) %>% percent(),
+        `Best Streak` = max(streaks$streak),
+        `Current Streak` = streaks %>% filter(date == today(tzone = "EST")) %>% pluck("streak")
+      ) %>% 
+        t()
+    }, rownames = T, colnames = F)
+    
+    output$distribution <- renderPlot({
+      clean %>% 
+        mutate(guesses = factor(guesses, levels = 1:6)) %>% 
+        filter(win) %>% 
+        count(guesses) %>%
+        ggplot(aes(x = n, y = guesses)) + 
+        geom_col() +
+        geom_text(aes(label = n),
+                  color = "white", 
+                  fontface = "bold",
+                  size = 6,
+                  hjust = 1.5) +
+        scale_y_discrete(limits = 6:1 %>% as.character()) +
+        theme_minimal() +
+        theme(axis.text.x = element_blank(),
+              axis.text = element_text(face = "bold", size = 18),
+              title = element_text(face = "bold", size = 16, color = "grey20")) +
+        labs(title = "Guess Distribution", x = NULL, y = NULL)
     })
     
     # Show popup again
@@ -376,7 +423,7 @@ share_results <- function(guess_history, winner) {
   
   n <- if_else(winner, as.character(length(guess_history)), 'X')
   
-  glue("Birdle #{birdle_num} {n}/6\n{rounds}\nhttps://mitchbeebe.shinyapps.io/Birdle/", )
+  glue("Birdle #{birdle_num} {n}/6\n{rounds}\nhttps://www.play-birdle.com", )
 }
 
 
