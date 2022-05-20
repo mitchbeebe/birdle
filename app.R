@@ -8,7 +8,7 @@ library(lubridate)
 library(emoji)
 library(scales)
 
-source("./db.R")
+source("./db2.R")
 birds <- read_csv("birds.csv")
 
 # Define UI for application that draws a histogram
@@ -148,12 +148,13 @@ ui <- navbarPage(
            )
   ),
   tabPanel("Stats", icon = icon("chart-bar", lib = "font-awesome"),
-           div(align = "center", plotOutput("distribution", width = "100%", height = "200px")),
+           div(align = "center", plotOutput("distribution", width = "300px", height = "200px")),
            hr(),
            div(align = "center", tableOutput("stats"))
   ),
   tabPanel("About", icon = icon("info"),
-           HTML("<p>
+           column(4, offset = 4,
+                  HTML("<p>
              Hi, my name is Mitch. I'm the creator of Birdle. I'm neither a birder nor web developer.
              I jokingly threw the name 'Birdle' out there to a friend that is an avid birder and also very 
              into all -dle games (<a href='https://www.nytimes.com/games/wordle/index.html' target=_blank>Wordle</a>, 
@@ -161,7 +162,7 @@ ui <- navbarPage(
              <a href='https://www.flagle.io/' target=_blank>Flagle</a>, 
              <a href='https://globle-game.com/' target=_blank>Globle</a>, to name a few).
              He proceeded to ask me about development progress daily until I caved and hacked this together.</p>")
-  )
+           ))
 )
 
 # Define server logic required to draw a histogram
@@ -204,33 +205,41 @@ server <- function(input, output, session) {
       ui
     })
     
-    user_games <- get_games() %>% filter(user_id == 1650507324227)
-    clean <- user_games %>%
-      mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
-             guesses = map_int(results, length),
-             final = map2(results, guesses, ~ .x[.y][[1]]),
-             win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
-      select(id, date, user_id, guesses, win)
+    stats_df <- reactive({ 
+      get_games() %>%
+        filter(user_id == input$cookies$user_id) %>%
+        mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
+               guesses = map_int(results, length),
+               final = map2(results, guesses, ~ .x[.y][[1]]),
+               win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
+        select(id, date, user_id, guesses, win)
+    })
     
     output$stats <- renderTable({
-      streaks <- clean %>% 
+      streaks <- stats_df() %>% 
         filter(win) %>% 
         mutate(con = cumsum(c(1, diff(as.Date(date))) > 1)) %>% 
         group_by(con) %>% 
         mutate(streak = n())
       
+      best_streak <- stats_df() %>% pluck("streak", .default = 0) %>% max()
+      
+      current_streak <- streaks %>% 
+        filter(date == today(tzone = "EST")) %>% 
+        pluck("streak", .default = 0)
+      
       tibble(
-        `Games Played` = nrow(clean),
-        `Games Won` = sum(clean$win),
-        `Win Percentage` = mean(clean$win) %>% percent(),
-        `Best Streak` = max(streaks$streak),
-        `Current Streak` = streaks %>% filter(date == today(tzone = "EST")) %>% pluck("streak")
+        `Games Played` = nrow(stats_df()),
+        `Games Won` = sum(stats_df()$win),
+        `Win Percentage` = mean(stats_df()$win) %>% percent(),
+        `Best Streak` = best_streak,
+        `Current Streak` = current_streak
       ) %>% 
         t()
     }, rownames = T, colnames = F)
     
     output$distribution <- renderPlot({
-      clean %>% 
+      stats_df() %>% 
         mutate(guesses = factor(guesses, levels = 1:6)) %>% 
         filter(win) %>% 
         count(guesses) %>%
