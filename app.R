@@ -186,6 +186,59 @@ server <- function(input, output, session) {
         width = "200px")
   })
   
+  stats_df <- eventReactive(input$load | input$submit, { 
+    get_games() %>%
+      filter(user_id == input$cookies$user_id) %>%
+      mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
+             guesses = map_int(results, length),
+             final = map2(results, guesses, ~ .x[.y][[1]]),
+             win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
+      select(id, date, user_id, guesses, win)
+  })
+  
+  output$stats <- renderTable({
+    streaks <- stats_df() %>% 
+      filter(win) %>% 
+      mutate(con = cumsum(c(1, diff(as.Date(date))) > 1)) %>% 
+      group_by(con) %>% 
+      mutate(streak = n())
+    
+    best_streak <- stats_df() %>% pluck("streak", .default = 0) %>% max()
+    
+    current_streak <- streaks %>% 
+      filter(date == today(tzone = "EST")) %>% 
+      pluck("streak", .default = 0)
+    
+    tibble(
+      `Games Played` = nrow(stats_df()),
+      `Games Won` = sum(stats_df()$win),
+      `Win Percentage` = mean(stats_df()$win) %>% percent(),
+      `Best Streak` = best_streak,
+      `Current Streak` = current_streak
+    ) %>% 
+      t()
+  }, rownames = T, colnames = F)
+  
+  output$distribution <- renderPlot({
+    stats_df() %>% 
+      mutate(guesses = factor(guesses, levels = 1:6)) %>% 
+      filter(win) %>% 
+      count(guesses) %>%
+      ggplot(aes(x = n, y = guesses)) + 
+      geom_col() +
+      geom_text(aes(label = n),
+                color = "white", 
+                fontface = "bold",
+                size = 6,
+                hjust = 1.5) +
+      scale_y_discrete(limits = 6:1 %>% as.character()) +
+      theme_minimal() +
+      theme(axis.text.x = element_blank(),
+            axis.text = element_text(face = "bold", size = 18),
+            title = element_text(face = "bold", size = 16, color = "grey20")) +
+      labs(title = "Guess Distribution", x = NULL, y = NULL)
+  })
+  
   # Do on page load
   observeEvent(input$load, {
     # Get the user_id from the cookies
@@ -203,59 +256,6 @@ server <- function(input, output, session) {
     # Render output
     output$results <- renderUI({
       ui
-    })
-    
-    stats_df <- reactive({ 
-      get_games() %>%
-        filter(user_id == input$cookies$user_id) %>%
-        mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
-               guesses = map_int(results, length),
-               final = map2(results, guesses, ~ .x[.y][[1]]),
-               win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
-        select(id, date, user_id, guesses, win)
-    })
-    
-    output$stats <- renderTable({
-      streaks <- stats_df() %>% 
-        filter(win) %>% 
-        mutate(con = cumsum(c(1, diff(as.Date(date))) > 1)) %>% 
-        group_by(con) %>% 
-        mutate(streak = n())
-      
-      best_streak <- stats_df() %>% pluck("streak", .default = 0) %>% max()
-      
-      current_streak <- streaks %>% 
-        filter(date == today(tzone = "EST")) %>% 
-        pluck("streak", .default = 0)
-      
-      tibble(
-        `Games Played` = nrow(stats_df()),
-        `Games Won` = sum(stats_df()$win),
-        `Win Percentage` = mean(stats_df()$win) %>% percent(),
-        `Best Streak` = best_streak,
-        `Current Streak` = current_streak
-      ) %>% 
-        t()
-    }, rownames = T, colnames = F)
-    
-    output$distribution <- renderPlot({
-      stats_df() %>% 
-        mutate(guesses = factor(guesses, levels = 1:6)) %>% 
-        filter(win) %>% 
-        count(guesses) %>%
-        ggplot(aes(x = n, y = guesses)) + 
-        geom_col() +
-        geom_text(aes(label = n),
-                  color = "white", 
-                  fontface = "bold",
-                  size = 6,
-                  hjust = 1.5) +
-        scale_y_discrete(limits = 6:1 %>% as.character()) +
-        theme_minimal() +
-        theme(axis.text.x = element_blank(),
-              axis.text = element_text(face = "bold", size = 18),
-              title = element_text(face = "bold", size = 16, color = "grey20")) +
-        labs(title = "Guess Distribution", x = NULL, y = NULL)
     })
     
     # Show popup again
