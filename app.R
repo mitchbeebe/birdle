@@ -13,12 +13,12 @@ birds <- read_csv("birds.csv")
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
+  id = "tabs",
   windowTitle = "Birdle",
   title = HTML(paste(icon("dove", "fa-light"), "Birdle")),
   theme = bslib::bs_theme(bootswatch = "default"),
   collapsible = TRUE,
   header = tags$head(
-    tags$link(rel="shortcut icon", href="/favicon.png"),
     tags$script(src = "script.js"),
     tags$script(
       src = paste0(
@@ -53,6 +53,16 @@ ui <- navbarPage(
     tags$style(HTML("
         #keep_alive {
           visibility: hidden;
+        }
+        .pro-pic {
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+          width: 250px;
+          height: 250px;
+          border-radius: 50%;
+          object-fit: cover;
+          object-position: 0 40%;
         }
   .selectize-control.single .selectize-input:after{
       display:none;
@@ -118,7 +128,7 @@ ui <- navbarPage(
     "))
   ),
   footer = useShinyjs(),
-  tabPanel("Game", icon = icon("dove", "fa-light"),
+  tabPanel("Play", icon = icon("play", "fa-light"),
            textOutput("keep_alive"),
            fluidRow(
              column(width = 12, align = "center",
@@ -152,16 +162,25 @@ ui <- navbarPage(
            hr(),
            div(align = "center", tableOutput("stats"))
   ),
-  tabPanel("About", icon = icon("info"),
+  tabPanel("Info", 
+           id = "info", 
+           icon = icon("info"),
            column(4, offset = 4,
-                  HTML("<p>
-             Hi, my name is Mitch. I'm the creator of Birdle. I'm neither a birder nor web developer.
+                  HTML("
+            <img src=\"med-res-profile-pic.jpg\" alt=\"profile picture\" class=\"pro-pic\">
+            <br>
+            <p>
+             Hi, my name is Mitch. I'm the creator of Birdle. 
+             I'm neither a birder nor web developer.
              I jokingly threw the name 'Birdle' out there to a friend that is an avid birder and also very 
              into all -dle games (<a href='https://www.nytimes.com/games/wordle/index.html' target=_blank>Wordle</a>, 
              <a href='https://worldle.teuteuf.fr/' target=_blank>Worldle</a>, 
              <a href='https://www.flagle.io/' target=_blank>Flagle</a>, 
              <a href='https://globle-game.com/' target=_blank>Globle</a>, to name a few).
-             He proceeded to ask me about development progress daily until I caved and hacked this together.</p>")
+             He proceeded to ask me about development progress daily until I caved and hacked this together.
+            </p>
+            <br>
+            <a href='https://www.buymeacoffee.com/mitchbeebe' target=_blank>https://www.buymeacoffee.com/mitchbeebe</a>")
            ))
 )
 
@@ -186,6 +205,8 @@ server <- function(input, output, session) {
         width = "200px")
   })
   
+  observe({ if(input$tabs == "Info") help_alert() })
+  
   stats_df <- eventReactive(input$load | input$submit, { 
     get_games() %>%
       filter(user_id == input$cookies$user_id) %>%
@@ -203,8 +224,6 @@ server <- function(input, output, session) {
       group_by(con) %>% 
       mutate(streak = n())
     
-    best_streak <- stats_df() %>% pluck("streak", .default = 0) %>% max()
-    
     current_streak <- streaks %>% 
       filter(date == today(tzone = "EST")) %>% 
       pluck("streak", .default = 0)
@@ -213,7 +232,7 @@ server <- function(input, output, session) {
       `Games Played` = nrow(stats_df()),
       `Games Won` = sum(stats_df()$win),
       `Win Percentage` = mean(stats_df()$win) %>% percent(),
-      `Best Streak` = best_streak,
+      `Best Streak` = streaks %>% pluck("streak") %>% max(., current_streak),
       `Current Streak` = current_streak
     ) %>% 
       t()
@@ -252,6 +271,8 @@ server <- function(input, output, session) {
       num_guesses <<- length(history)
       if(!is.na(res$ui)) ui <<- tagAppendChild(ui, HTML(res$ui))
     })
+    
+    if(nrow(stats_df()) == 1) help_alert()
     
     # Render output
     output$results <- renderUI({
@@ -305,6 +326,8 @@ server <- function(input, output, session) {
     
     alert(history, bird_answer())
   })
+  
+  onclick("a")
   
   output$keep_alive <- renderText({
     req(input$alive_count)
@@ -417,6 +440,26 @@ alert <- function(history, bird_answer) {
       animation = TRUE
     )
   }
+}
+
+help_alert <- function() {
+  shinyalert(
+    title = "Welcome to Birdle!",
+    text = HTML("You get six guesses to identify the bird of the day.
+        If you guess incorrectly, but your guess shares the order, family, or genus 
+        (<a href=\"https://en.wikipedia.org/wiki/Taxonomic_rank\" target=_blank>taxonomic rank</a>) 
+        with the species of the day, the tiles below will turn green. Good luck!"),
+    size = "xs", 
+    closeOnEsc = TRUE,
+    closeOnClickOutside = TRUE,
+    html = TRUE,
+    type = "",
+    showConfirmButton = FALSE,
+    showCancelButton = FALSE,
+    timer = 0,
+    imageUrl = "https://upload.wikimedia.org/wikipedia/en/d/d8/Windows_11_Clippy_paperclip_emoji.png",
+    animation = TRUE
+  )
 }
 
 share_results <- function(guess_history, winner) {
