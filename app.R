@@ -54,16 +54,6 @@ ui <- navbarPage(
         #keep_alive {
           visibility: hidden;
         }
-        .pro-pic {
-          display: block;
-          margin-left: auto;
-          margin-right: auto;
-          width: 250px;
-          height: 250px;
-          border-radius: 50%;
-          object-fit: cover;
-          object-position: 0 40%;
-        }
   .selectize-control.single .selectize-input:after{
       display:none;
   }
@@ -167,7 +157,6 @@ ui <- navbarPage(
            icon = icon("info"),
            column(4, offset = 4,
                   HTML("
-            <img src=\"med-res-profile-pic.jpg\" alt=\"profile picture\" class=\"pro-pic\">
             <br>
             <p>
              Hi, my name is Mitch. I'm the creator of Birdle. 
@@ -218,15 +207,30 @@ server <- function(input, output, session) {
   })
   
   output$stats <- renderTable({
+    
+    today_stats <- stats_df() %>% 
+      filter(date == today(tzone = "EST"))
+    
     streaks <- stats_df() %>% 
       filter(win) %>% 
       mutate(con = cumsum(c(1, diff(as.Date(date))) > 1)) %>% 
       group_by(con) %>% 
-      mutate(streak = n())
+      mutate(streak = sum(win))
     
-    current_streak <- streaks %>% 
-      filter(date == today(tzone = "EST")) %>% 
-      pluck("streak", .default = 0)
+    current_streak <- 
+      if(today_stats$guesses == 6 & !today_stats$win) {
+        0
+      } else if(today_stats$guesses < 6 & !today_stats$win) {
+        streaks %>% 
+          filter(date == today(tzone = "EST") - 1) %>% 
+          pluck("streak", .default = 0) %>% 
+          as.numeric()
+      } else if(today_stats$win) {
+        streaks %>% 
+          filter(date == today(tzone = "EST")) %>% 
+          pluck("streak", .default = 1) %>% 
+          as.numeric()
+      }
     
     tibble(
       `Games Played` = nrow(stats_df()),
@@ -475,7 +479,7 @@ share_results <- function(guess_history, winner) {
   
   n <- if_else(winner, as.character(length(guess_history)), 'X')
   
-  glue("Birdle #{birdle_num} {n}/6\n{rounds}\nhttps://www.play-birdle.com", )
+  glue("Birdle #{birdle_num} {n}/6\n{rounds}\nhttps://www.play-birdle.com")
 }
 
 
