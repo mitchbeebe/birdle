@@ -5,7 +5,7 @@ function getCookies(){
 
 $(document).on('shiny:connected', function(ev){
   if(Cookies.get('user_id') == null) {
-    Cookies.set('user_id', Date.now());
+    Cookies.set('user_id', Date.now(), { expires: 10000 });
   }
   getCookies();
   Shiny.setInputValue("load", 1, {priority: "event"});
