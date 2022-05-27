@@ -1,15 +1,11 @@
-function getCookies(){
-  var res = Cookies.get();
-  Shiny.setInputValue('cookies', res);
-}
-
 $(document).on('shiny:connected', function(ev){
-  if(Cookies.get('user_id') == null) {
-    Cookies.set('user_id', Date.now(), { expires: new Date(2030, 0), path: "/" });
+  if(localStorage.getItem('user_id') == null) {
+    localStorage.setItem('user_id', Date.now());
   }
-  getCookies();
+  let res = localStorage.getItem('user_id');
+  Shiny.setInputValue('user_id', res);
   Shiny.setInputValue("load", 1, {priority: "event"});
-})
+});
 
 var socket_timeout_interval;
 var n = 0;

@@ -8,7 +8,7 @@ library(lubridate)
 library(emoji)
 library(scales)
 
-source("./db2.R")
+source("./db.R")
 birds <- read_csv("birds.csv")
 
 # Define UI for application that draws a histogram
@@ -198,12 +198,11 @@ server <- function(input, output, session) {
   
   stats_df <- eventReactive(input$load | input$submit, { 
     get_games() %>%
-      filter(user_id == input$cookies$user_id) %>%
+      filter(user_id == input$user_id) %>%
       mutate(results = map(history, ~ .x %>% charToRaw() %>% unserialize()),
              guesses = map_int(results, length),
              final = map2(results, guesses, ~ .x[.y][[1]]),
-             win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE)) %>% 
-      select(id, date, user_id, guesses, win)
+             win = coalesce(map_lgl(final, ~ all(. == rep("correct", 4))), FALSE))
   })
   
   output$stats <- renderTable({
@@ -265,10 +264,10 @@ server <- function(input, output, session) {
   # Do on page load
   observeEvent(input$load, {
     # Get the user_id from the cookies
-    req(input$cookies$user_id)
+    req(input$user_id)
     
     # Fetch user results and store as current values
-    res <- get_user_results(as.character(today(tzone = "EST")), input$cookies$user_id)
+    res <- get_user_results(as.character(today(tzone = "EST")), input$user_id)
     try({
       unserialized_history <- res$history %>% charToRaw() %>% unserialize()
       if(!is.na(unserialized_history)) history <<- unserialized_history
@@ -276,7 +275,7 @@ server <- function(input, output, session) {
       if(!is.na(res$ui)) ui <<- tagAppendChild(ui, HTML(res$ui))
     })
     
-    if(nrow(stats_df()) == 1) help_alert()
+    if(nrow(stats_df()) == 1 & is.na(stats_df()$results)) help_alert()
     
     # Render output
     output$results <- renderUI({
@@ -322,7 +321,7 @@ server <- function(input, output, session) {
     
     ui <<- tagAppendChild(ui, result$divs)
     
-    update_user_results(today(tzone = "EST"), input$cookies$user_id, history, ui)
+    update_user_results(today(tzone = "EST"), input$user_id, history, ui)
     
     output$results <- renderUI({
       ui

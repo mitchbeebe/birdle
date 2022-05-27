@@ -1,24 +1,24 @@
-library(RSQLite)
+library(DBI)
+library(RPostgres)
+library(httr)
 library(glue)
-sqlitePath <- "my-db.sqlite"
 
-initdb <- function() {
-  db <- dbConnect(SQLite(), sqlitePath)
-  
-  dbExecute(db,
-            "CREATE TABLE games (
-                 id INTEGER PRIMARY KEY,
-                 date TEXT,
-                 user_id INTEGER,
-                 history TEXT,
-                 ui TEXT
-              );")
-  
-  dbDisconnect(db)
+db_uri <- Sys.getenv('DATABASE_URL') # "postgresql://mbeebe@localhost/mbeebe" # dev-db
+parts <- parse_url(db_uri)
+
+conn <- function() {
+  dbConnect(
+    RPostgres::Postgres(),
+    host = parts$hostname,
+    port = parts$port,
+    user = parts$user,
+    password = parts$password,
+    dbname = parts$path
+  )
 }
 
 get_games <- function() {
-  db <- dbConnect(SQLite(), sqlitePath)
+  db <- conn()
   
   res <- dbGetQuery(db, "select * from games")
   
@@ -27,16 +27,8 @@ get_games <- function() {
   res
 }
 
-clear_table <- function() {
-  db <- dbConnect(SQLite(), sqlitePath)
-  
-  dbExecute(db, "DELETE FROM games")
-  
-  dbDisconnect(db)
-}
-
 get_user_results <- function(date, user_id) {
-  db <- dbConnect(SQLite(), sqlitePath)
+  db <- conn()
   
   res <- dbGetQuery(db, glue("select * from games where date = '{date}' and user_id = {user_id}"))
   
@@ -60,7 +52,7 @@ get_user_results <- function(date, user_id) {
 }
 
 update_user_results <- function(date, user_id, history, ui) {
-  db <- dbConnect(SQLite(), sqlitePath)
+  db <- conn()
   
   clean_ui <- gsub("'", "''", ui)
   clean_history <- history %>% serialize(NULL, ascii=TRUE) %>% rawToChar()
@@ -75,33 +67,3 @@ update_user_results <- function(date, user_id, history, ui) {
   
   dbDisconnect(db)
 }
-
-# update_games <- function(uuid) {
-#   dbExecute(db,
-#             paste0("
-#               UPDATE users 
-#               SET games_played = games_played + 1 
-#               WHERE uuid = ", uuid
-#             )
-#   )
-# }
-# 
-# increase_streak <- function(uuid) {
-#   dbExecute(db,
-#             paste0("
-#               UPDATE users 
-#               SET streak = streak + 1 
-#               WHERE uuid = ", uuid
-#             )
-#   )
-# }
-# 
-# reset_streak <- function(uuid) {
-#   dbExecute(db,
-#             paste0("
-#               UPDATE users 
-#               SET streak = 0
-#               WHERE uuid = ", uuid
-#             )
-#   )
-# }
