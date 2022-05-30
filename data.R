@@ -19,10 +19,9 @@ species <-
       genus_species = .x %>% html_element("p") %>% html_text(),
       genus = str_extract(genus_species, "^\\w+"),
       name = .x %>% html_element("h4") %>% html_text(),
-      src = .x %>% html_element("img") %>% html_attr("src"),
-      pre_src = .x %>% html_element("img") %>% html_attr("pre-src"),
-      img_src = paste0(str_replace(src, "NA", NA_character_),
-                       str_replace(pre_src, "NA", NA_character_)),
+      src = .x %>% html_element("img") %>% html_attr("src") %>% na_if(""),
+      pre_src = .x %>% html_element("img") %>% html_attr("pre-src") %>% na_if(""),
+      img_src =  coalesce(src, pre_src),
       url = paste0("https://www.allaboutbirds.org",
                    .x %>% html_element("a") %>% html_attr("href"))
     ) %>% 
