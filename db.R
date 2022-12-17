@@ -17,6 +17,18 @@ conn <- function() {
   )
 }
 
+create_games <- function() {
+  db <- conn()
+  
+  dbExecute(db, "
+    CREATE TABLE games (
+      date DATE
+      , user_id BIGINT
+      , history VARCHAR
+      , ui VARCHAR
+    )")
+}
+
 get_games <- function() {
   db <- conn()
   
