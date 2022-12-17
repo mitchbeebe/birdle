@@ -3,7 +3,7 @@ library(RPostgres)
 library(httr)
 library(glue)
 
-db_uri <- Sys.getenv('DATABASE_URL') # "postgresql://mbeebe@localhost/mbeebe" # dev-db
+db_uri <- Sys.getenv('DATABASE_URL')
 parts <- parse_url(db_uri)
 
 conn <- function() {
